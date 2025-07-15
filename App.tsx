@@ -325,8 +325,8 @@ const Header = ({ view, saveStatus, isSidebarOpen, setIsSidebarOpen, onImport, o
                         <CustomButton
                             onClick={onImport}
                             variant="primary"
-                            disabled={isImporting || !isPdfImportEnabled}
-                            title={!isPdfImportEnabled ? "PDF Import is not configured. Please contact an administrator." : "Import data from a PDF file"}
+                            disabled={isImporting}
+                            title={!isPdfImportEnabled ? "PDF Import is not configured. Falling back to demo mode." : "Import data from a PDF file"}
                         >
                             <UploadIcon />
                             {isImporting ? 'Importing...' : 'Import PDF'}
@@ -669,6 +669,40 @@ export default function App() {
         const file = e.target.files?.[0];
         if (!file) return;
         setIsImporting(true);
+    
+        // Explicitly check for API key before making any API calls
+        if (!process.env.API_KEY) {
+            console.warn("API_KEY is not configured. Loading demo data as a fallback.");
+            // Use a short timeout to simulate processing for a better user experience
+            setTimeout(() => {
+                const sampleReports: Report[] = [
+                    { id: 'demo-1', requesterName: 'John Doe (Demo)', campus: 'Campus1', importDate: '2024-01-15', exportDate: '2024-01-16', items: { 'A4 Paper': 2, 'Mouse': 1 }, status: 'Done' },
+                    { id: 'demo-2', requesterName: 'Jane Smith (Demo)', campus: 'Campus2', importDate: '2024-01-17', exportDate: '2024-01-18', items: { 'Keyboard': 1, 'Webcam': 1, 'Bk': 5 }, status: 'Process' }
+                ];
+                const allItemsList = [...STATIONARY_ITEMS_ROW1, ...STATIONARY_ITEMS_ROW2];
+                const sampleStock: Record<string, StockItem> = {};
+                allItemsList.forEach(item => {
+                    sampleStock[item] = { quantity: 0, lastInDate: '', lastOutDate: '', lastUpdateQuantity: 0 };
+                });
+                sampleStock['A4 Paper'] = { quantity: 18, lastInDate: '2024-01-10', lastOutDate: '2024-01-15', lastUpdateQuantity: -2 };
+                sampleStock['Mouse'] = { quantity: 9, lastInDate: '2024-01-10', lastOutDate: '2024-01-15', lastUpdateQuantity: -1 };
+                sampleStock['Keyboard'] = { quantity: 14, lastInDate: '2024-01-10', lastOutDate: '', lastUpdateQuantity: 0 };
+                sampleStock['Webcam'] = { quantity: 5, lastInDate: '2024-01-10', lastOutDate: '', lastUpdateQuantity: 0 };
+                sampleStock['Bk'] = { quantity: 20, lastInDate: '2024-01-10', lastOutDate: '', lastUpdateQuantity: 0 };
+    
+                setReports(sampleReports);
+                setStock(sampleStock);
+                setInfoModalContent({
+                    variant: 'info',
+                    title: 'Demo Mode Activated',
+                    message: 'The document processing service is not configured. To demonstrate functionality, sample data has been loaded instead.'
+                });
+                setIsImporting(false);
+                if (e.target) e.target.value = '';
+            }, 500); // 500ms delay for UX
+            return;
+        }
+    
         try {
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
@@ -679,12 +713,12 @@ export default function App() {
                 fullText += textContent.items.map((item: any) => item.str).join(' ') + '\n\n';
             }
             if (!fullText.trim()) throw new Error("Could not extract any text from the PDF.");
-
+    
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             
             const allItems = [...STATIONARY_ITEMS_ROW1, ...STATIONARY_ITEMS_ROW2].join(', ');
             const allCampuses = CAMPUS_OPTIONS.join(', ');
-
+    
             const prompt = `
 Analyze the following text from a stationary management document and extract all reports and the complete stock inventory according to the specified JSON schema.
 
@@ -710,7 +744,7 @@ Please ensure the output strictly adheres to the JSON schema provided.
 ${fullText}
 ---
 `;
-
+    
             const schema = {
               type: Type.OBJECT,
               properties: {
@@ -757,7 +791,7 @@ ${fullText}
               },
               required: ['reports', 'stock']
             };
-
+    
             const response = await ai.models.generateContent({
                 model: 'gemini-2.5-flash',
                 contents: prompt,
@@ -766,15 +800,15 @@ ${fullText}
                     responseSchema: schema
                 }
             });
-
+    
             const jsonStr = response.text.trim();
             const parsedData = JSON.parse(jsonStr);
-
+    
             if (!parsedData || typeof parsedData !== 'object') throw new Error("AI response is not a valid JSON object.");
             
             const parsedReports = parsedData.reports;
             if (!Array.isArray(parsedReports)) throw new Error("AI did not return a valid array of reports.");
-
+    
             const newReports: Report[] = parsedReports.map((item: any) => {
                 const itemsRecord: Record<string, number> = {};
                 if (Array.isArray(item.items)) {
@@ -797,7 +831,7 @@ ${fullText}
     
             const parsedStock = parsedData.stock;
             if (!Array.isArray(parsedStock)) throw new Error("AI did not return a valid stock array.");
-
+    
             const newStock: Record<string, StockItem> = {};
             parsedStock.forEach((item: { name: string; quantity: number; lastInDate: string }) => {
                 if (item.name && typeof item.quantity === 'number') {
@@ -817,39 +851,15 @@ ${fullText}
             console.error("Failed to import PDF:", error);
             let errorTitle = 'Error Importing PDF';
             let errorMessage = "An unknown error occurred.";
-
+    
             if (error instanceof Error) {
                 const message = error.message;
-
-                // If the API key is missing or invalid, load demo data as a fallback.
-                if (message.includes("API key not valid")) {
-                    const sampleReports: Report[] = [
-                        { id: 'demo-1', requesterName: 'John Doe (Demo)', campus: 'Campus1', importDate: '2024-01-15', exportDate: '2024-01-16', items: { 'A4 Paper': 2, 'Mouse': 1 }, status: 'Done' },
-                        { id: 'demo-2', requesterName: 'Jane Smith (Demo)', campus: 'Campus2', importDate: '2024-01-17', exportDate: '2024-01-18', items: { 'Keyboard': 1, 'Webcam': 1, 'Bk': 5 }, status: 'Process' }
-                    ];
-                    const allItemsList = [...STATIONARY_ITEMS_ROW1, ...STATIONARY_ITEMS_ROW2];
-                    const sampleStock: Record<string, StockItem> = {};
-                    allItemsList.forEach(item => {
-                        sampleStock[item] = { quantity: 0, lastInDate: '', lastOutDate: '', lastUpdateQuantity: 0 };
-                    });
-                    sampleStock['A4 Paper'] = { quantity: 18, lastInDate: '2024-01-10', lastOutDate: '2024-01-15', lastUpdateQuantity: -2 };
-                    sampleStock['Mouse'] = { quantity: 9, lastInDate: '2024-01-10', lastOutDate: '2024-01-15', lastUpdateQuantity: -1 };
-                    sampleStock['Keyboard'] = { quantity: 14, lastInDate: '2024-01-10', lastOutDate: '', lastUpdateQuantity: 0 };
-                    sampleStock['Webcam'] = { quantity: 5, lastInDate: '2024-01-10', lastOutDate: '', lastUpdateQuantity: 0 };
-                    sampleStock['Bk'] = { quantity: 20, lastInDate: '2024-01-10', lastOutDate: '', lastUpdateQuantity: 0 };
-
-                    setReports(sampleReports);
-                    setStock(sampleStock);
-                    setInfoModalContent({
-                        variant: 'info',
-                        title: 'Demo Mode Activated',
-                        message: 'The document processing service is not configured. To demonstrate functionality, sample data has been loaded instead.'
-                    });
-                    return; 
-                } else if (message.includes("Could not extract any text from the PDF")) {
+    
+                if (message.includes("Could not extract any text from the PDF")) {
                     errorTitle = "Cannot Read PDF";
                     errorMessage = "No text could be extracted from the provided PDF. It may be an image, empty, or corrupted.";
                 } else {
+                    // Generic handler for API errors (e.g., invalid key, network issues) or parsing errors.
                     try {
                         const parsedError = JSON.parse(message);
                         errorMessage = parsedError?.error?.message || message;
