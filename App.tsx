@@ -394,8 +394,8 @@ export default function App() {
     const [isImporting, setIsImporting] = useState(false);
     const importFileRef = useRef<HTMLInputElement>(null);
     
-    // Check if PDF import feature is enabled via environment configuration
-    const isPdfImportEnabled = useMemo(() => !!process.env.API_KEY, []);
+    // Feature is always enabled; it will fall back to demo data if API key is not configured.
+    const isPdfImportEnabled = true;
 
     useEffect(() => {
         if (reportsDidMount.current) {
@@ -670,10 +670,6 @@ export default function App() {
         if (!file) return;
         setIsImporting(true);
         try {
-            if (!process?.env?.API_KEY) {
-                throw new Error("API_KEY environment variable is not configured. PDF import is unavailable.");
-            }
-
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
             let fullText = '';
@@ -825,6 +821,7 @@ ${fullText}
             if (error instanceof Error) {
                 const message = error.message;
 
+                // If the API key is missing or invalid, load demo data as a fallback.
                 if (message.includes("API key not valid")) {
                     const sampleReports: Report[] = [
                         { id: 'demo-1', requesterName: 'John Doe (Demo)', campus: 'Campus1', importDate: '2024-01-15', exportDate: '2024-01-16', items: { 'A4 Paper': 2, 'Mouse': 1 }, status: 'Done' },
@@ -846,12 +843,9 @@ ${fullText}
                     setInfoModalContent({
                         variant: 'info',
                         title: 'Demo Mode Activated',
-                        message: 'The document processing service is not configured correctly. To demonstrate functionality, sample data has been loaded instead.'
+                        message: 'The document processing service is not configured. To demonstrate functionality, sample data has been loaded instead.'
                     });
                     return; 
-                } else if (message.includes("API_KEY environment variable is not configured")) {
-                    errorTitle = 'Service Not Configured';
-                    errorMessage = "The PDF import feature is currently unavailable. Please contact an administrator for assistance.";
                 } else if (message.includes("Could not extract any text from the PDF")) {
                     errorTitle = "Cannot Read PDF";
                     errorMessage = "No text could be extracted from the provided PDF. It may be an image, empty, or corrupted.";
