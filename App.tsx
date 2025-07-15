@@ -1,4 +1,5 @@
 
+
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -641,8 +642,14 @@ export default function App() {
                 doc.text(doc.splitTextToSize(summaryText, 180), 14, startY); startY += (doc.splitTextToSize(summaryText, 180).length * 4) + 5;
             }
             autoTable(doc, {
-                head: [["Requester", "Campus", "Import", "Export", "Total"]],
-                body: reports.map(r => [r.requesterName, r.campus, r.importDate, r.exportDate, calculateTotalItems(r.items).toString()]),
+                head: [["Requester", "Campus", "Import Date", "Export Date", "Items"]],
+                body: reports.map(r => [
+                    r.requesterName, 
+                    r.campus, 
+                    r.importDate, 
+                    r.exportDate, 
+                    formatItemsForDisplay(r.items)
+                ]),
                 startY: startY, theme: 'grid', headStyles: { fillColor: [45, 55, 72] },
             });
             return (doc as any).lastAutoTable.finalY;
