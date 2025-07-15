@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -298,11 +299,10 @@ interface HeaderProps {
     onImport: () => void;
     onExport: () => void;
     isImporting: boolean;
-    isPdfImportEnabled: boolean;
     hasReports: boolean;
 }
 
-const Header = ({ view, saveStatus, isSidebarOpen, setIsSidebarOpen, onImport, onExport, isImporting, isPdfImportEnabled, hasReports }: HeaderProps) => {
+const Header = ({ view, saveStatus, isSidebarOpen, setIsSidebarOpen, onImport, onExport, isImporting, hasReports }: HeaderProps) => {
     const getHeaderText = () => {
         switch (view) {
             case 'reports': return 'Reports Management';
@@ -326,7 +326,7 @@ const Header = ({ view, saveStatus, isSidebarOpen, setIsSidebarOpen, onImport, o
                             onClick={onImport}
                             variant="primary"
                             disabled={isImporting}
-                            title={!isPdfImportEnabled ? "PDF Import is not configured. Falling back to demo mode." : "Import data from a PDF file"}
+                            title="Import data from a PDF file"
                         >
                             <UploadIcon />
                             {isImporting ? 'Importing...' : 'Import PDF'}
@@ -394,9 +394,6 @@ export default function App() {
     const [isImporting, setIsImporting] = useState(false);
     const importFileRef = useRef<HTMLInputElement>(null);
     
-    // Feature is always enabled; it will fall back to demo data if API key is not configured.
-    const isPdfImportEnabled = true;
-
     useEffect(() => {
         if (reportsDidMount.current) {
             try {
@@ -670,40 +667,13 @@ export default function App() {
         if (!file) return;
         setIsImporting(true);
     
-        // Explicitly check for API key before making any API calls
-        if (!process.env.API_KEY) {
-            console.warn("API_KEY is not configured. Loading demo data as a fallback.");
-            // Use a short timeout to simulate processing for a better user experience
-            setTimeout(() => {
-                const sampleReports: Report[] = [
-                    { id: 'demo-1', requesterName: 'John Doe (Demo)', campus: 'Campus1', importDate: '2024-01-15', exportDate: '2024-01-16', items: { 'A4 Paper': 2, 'Mouse': 1 }, status: 'Done' },
-                    { id: 'demo-2', requesterName: 'Jane Smith (Demo)', campus: 'Campus2', importDate: '2024-01-17', exportDate: '2024-01-18', items: { 'Keyboard': 1, 'Webcam': 1, 'Bk': 5 }, status: 'Process' }
-                ];
-                const allItemsList = [...STATIONARY_ITEMS_ROW1, ...STATIONARY_ITEMS_ROW2];
-                const sampleStock: Record<string, StockItem> = {};
-                allItemsList.forEach(item => {
-                    sampleStock[item] = { quantity: 0, lastInDate: '', lastOutDate: '', lastUpdateQuantity: 0 };
-                });
-                sampleStock['A4 Paper'] = { quantity: 18, lastInDate: '2024-01-10', lastOutDate: '2024-01-15', lastUpdateQuantity: -2 };
-                sampleStock['Mouse'] = { quantity: 9, lastInDate: '2024-01-10', lastOutDate: '2024-01-15', lastUpdateQuantity: -1 };
-                sampleStock['Keyboard'] = { quantity: 14, lastInDate: '2024-01-10', lastOutDate: '', lastUpdateQuantity: 0 };
-                sampleStock['Webcam'] = { quantity: 5, lastInDate: '2024-01-10', lastOutDate: '', lastUpdateQuantity: 0 };
-                sampleStock['Bk'] = { quantity: 20, lastInDate: '2024-01-10', lastOutDate: '', lastUpdateQuantity: 0 };
-    
-                setReports(sampleReports);
-                setStock(sampleStock);
-                setInfoModalContent({
-                    variant: 'info',
-                    title: 'Demo Mode Activated',
-                    message: 'The document processing service is not configured. To demonstrate functionality, sample data has been loaded instead.'
-                });
-                setIsImporting(false);
-                if (e.target) e.target.value = '';
-            }, 500); // 500ms delay for UX
-            return;
-        }
-    
         try {
+            // Step 1: Check for API Key Configuration
+            if (!process.env.API_KEY) {
+                throw new Error("API_KEY_MISSING");
+            }
+    
+            // Step 2: Parse the PDF file
             const arrayBuffer = await file.arrayBuffer();
             const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
             let fullText = '';
@@ -714,6 +684,7 @@ export default function App() {
             }
             if (!fullText.trim()) throw new Error("Could not extract any text from the PDF.");
     
+            // Step 3: Call the Generative AI Model
             const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
             
             const allItems = [...STATIONARY_ITEMS_ROW1, ...STATIONARY_ITEMS_ROW2].join(', ');
@@ -801,6 +772,7 @@ ${fullText}
                 }
             });
     
+            // Step 4: Process the AI Response
             const jsonStr = response.text.trim();
             const parsedData = JSON.parse(jsonStr);
     
@@ -849,26 +821,45 @@ ${fullText}
             setInfoModalContent({ variant: 'success', title: 'Import Successful', message: `Successfully imported ${newReports.length} reports and replaced the stock inventory.` });
         } catch (error) {
             console.error("Failed to import PDF:", error);
-            let errorTitle = 'Error Importing PDF';
-            let errorMessage = "An unknown error occurred.";
-    
+            
             if (error instanceof Error) {
-                const message = error.message;
+                const message = error.message.toLowerCase();
     
-                if (message.includes("Could not extract any text from the PDF")) {
-                    errorTitle = "Cannot Read PDF";
-                    errorMessage = "No text could be extracted from the provided PDF. It may be an image, empty, or corrupted.";
+                // Fallback to Demo Mode if API Key is missing or invalid
+                if (message === 'api_key_missing' || message.includes('api key not valid')) {
+                    console.warn("API Key issue detected. Falling back to demo data.");
+                    setTimeout(() => {
+                        const sampleReports: Report[] = [
+                            { id: 'demo-1', requesterName: 'John Doe (Demo)', campus: 'Campus1', importDate: '2024-01-15', exportDate: '2024-01-16', items: { 'A4 Paper': 2, 'Mouse': 1 }, status: 'Done' },
+                            { id: 'demo-2', requesterName: 'Jane Smith (Demo)', campus: 'Campus2', importDate: '2024-01-17', exportDate: '2024-01-18', items: { 'Keyboard': 1, 'Webcam': 1, 'Bk': 5 }, status: 'Process' }
+                        ];
+                        const allItemsList = [...STATIONARY_ITEMS_ROW1, ...STATIONARY_ITEMS_ROW2];
+                        const sampleStock: Record<string, StockItem> = {};
+                        allItemsList.forEach(item => {
+                            sampleStock[item] = { quantity: 0, lastInDate: '', lastOutDate: '', lastUpdateQuantity: 0 };
+                        });
+                        sampleStock['A4 Paper'] = { quantity: 18, lastInDate: '2024-01-10', lastOutDate: '2024-01-15', lastUpdateQuantity: -2 };
+                        sampleStock['Mouse'] = { quantity: 9, lastInDate: '2024-01-10', lastOutDate: '2024-01-15', lastUpdateQuantity: -1 };
+                        sampleStock['Keyboard'] = { quantity: 14, lastInDate: '2024-01-10', lastOutDate: '', lastUpdateQuantity: 0 };
+                        sampleStock['Webcam'] = { quantity: 5, lastInDate: '2024-01-10', lastOutDate: '', lastUpdateQuantity: 0 };
+                        sampleStock['Bk'] = { quantity: 20, lastInDate: '2024-01-10', lastOutDate: '', lastUpdateQuantity: 0 };
+            
+                        setReports(sampleReports);
+                        setStock(sampleStock);
+                        setInfoModalContent({
+                            variant: 'info',
+                            title: 'Demo Mode Activated',
+                            message: 'The AI document processing service is not configured. To demonstrate functionality, sample data has been loaded instead.'
+                        });
+                    }, 100);
+                } else if (message.includes("could not extract any text from the pdf")) {
+                    setInfoModalContent({ variant: 'error', title: 'Cannot Read PDF', message: 'No text could be extracted from the provided PDF. It may be an image, empty, or corrupted.' });
                 } else {
-                    // Generic handler for API errors (e.g., invalid key, network issues) or parsing errors.
-                    try {
-                        const parsedError = JSON.parse(message);
-                        errorMessage = parsedError?.error?.message || message;
-                    } catch (e) {
-                        errorMessage = message;
-                    }
+                     setInfoModalContent({ variant: 'error', title: 'Error Importing PDF', message: `An unexpected error occurred: ${error.message}` });
                 }
+            } else {
+                setInfoModalContent({ variant: 'error', title: 'Error Importing PDF', message: 'An unknown error occurred.' });
             }
-            setInfoModalContent({ variant: 'error', title: errorTitle, message: errorMessage });
         } finally {
             setIsImporting(false);
             if (e.target) e.target.value = '';
@@ -938,7 +929,6 @@ ${fullText}
                     onImport={handleTriggerPdfImport}
                     onExport={handleExportPDF}
                     isImporting={isImporting}
-                    isPdfImportEnabled={isPdfImportEnabled}
                     hasReports={reports.length > 0}
                 />
                 <div className="p-4 md:p-6">
