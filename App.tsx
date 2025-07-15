@@ -828,41 +828,21 @@ ${fullText}
             setInfoModalContent({ variant: 'success', title: 'Import Successful', message: `Successfully imported ${newReports.length} reports and replaced the stock inventory.` });
         } catch (error) {
             console.error("Failed to import PDF:", error);
-            
+
             if (error instanceof Error) {
                 const message = error.message.toLowerCase();
-    
-                // Fallback to Demo Mode if API Key is missing or invalid
+
+                // If API Key is missing or invalid, show a specific error.
                 if (message === 'api_key_missing' || message.includes('api key not valid')) {
-                    console.warn("API Key issue detected. Falling back to demo data.");
-                    setTimeout(() => {
-                        const sampleReports: Report[] = [
-                            { id: 'demo-1', requesterName: 'John Doe (Demo)', campus: 'Campus1', importDate: '2024-01-15', exportDate: '2024-01-16', items: { 'A4 Paper': 2, 'Mouse': 1 }, status: 'Done' },
-                            { id: 'demo-2', requesterName: 'Jane Smith (Demo)', campus: 'Campus2', importDate: '2024-01-17', exportDate: '2024-01-18', items: { 'Keyboard': 1, 'Webcam': 1, 'Bk': 5 }, status: 'Process' }
-                        ];
-                        const allItemsList = [...STATIONARY_ITEMS_ROW1, ...STATIONARY_ITEMS_ROW2];
-                        const sampleStock: Record<string, StockItem> = {};
-                        allItemsList.forEach(item => {
-                            sampleStock[item] = { quantity: 0, lastInDate: '', lastOutDate: '', lastUpdateQuantity: 0 };
-                        });
-                        sampleStock['A4 Paper'] = { quantity: 18, lastInDate: '2024-01-10', lastOutDate: '2024-01-15', lastUpdateQuantity: -2 };
-                        sampleStock['Mouse'] = { quantity: 9, lastInDate: '2024-01-10', lastOutDate: '2024-01-15', lastUpdateQuantity: -1 };
-                        sampleStock['Keyboard'] = { quantity: 14, lastInDate: '2024-01-10', lastOutDate: '', lastUpdateQuantity: 0 };
-                        sampleStock['Webcam'] = { quantity: 5, lastInDate: '2024-01-10', lastOutDate: '', lastUpdateQuantity: 0 };
-                        sampleStock['Bk'] = { quantity: 20, lastInDate: '2024-01-10', lastOutDate: '', lastUpdateQuantity: 0 };
-            
-                        setReports(sampleReports);
-                        setStock(sampleStock);
-                        setInfoModalContent({
-                            variant: 'info',
-                            title: 'Demo Mode Activated',
-                            message: 'The AI document processing service is not configured. To demonstrate functionality, sample data has been loaded instead.'
-                        });
-                    }, 100);
+                    setInfoModalContent({
+                        variant: 'error',
+                        title: 'AI Service Not Configured',
+                        message: 'The document processing service is unavailable. Please ensure the API key is set up correctly on the server. Contact your administrator for assistance.'
+                    });
                 } else if (message.includes("could not extract any text from the pdf")) {
                     setInfoModalContent({ variant: 'error', title: 'Cannot Read PDF', message: 'No text could be extracted from the provided PDF. It may be an image, empty, or corrupted.' });
                 } else {
-                     setInfoModalContent({ variant: 'error', title: 'Error Importing PDF', message: `An unexpected error occurred: ${error.message}` });
+                     setInfoModalContent({ variant: 'error', title: 'Error Importing PDF', message: `An unexpected error occurred during import. The AI model may have been unable to parse the document. Details: ${error.message}` });
                 }
             } else {
                 setInfoModalContent({ variant: 'error', title: 'Error Importing PDF', message: 'An unknown error occurred.' });
