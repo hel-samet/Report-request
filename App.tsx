@@ -63,6 +63,8 @@ const CloseIcon = () => <Icon path="M6 18L18 6M6 6l12 12" className="h-5 w-5 mr-
 const ChevronDownIcon = ({className}: {className: string}) => <Icon path="M19 9l-7 7-7-7" className={className} />;
 const UploadIcon = () => <Icon path="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" className="h-5 w-5 mr-2" />;
 const DownloadIcon = () => <Icon path="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" className="h-5 w-5 mr-2" />;
+export const CheckCircleIcon = ({className}: {className?: string}) => <Icon path="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" className={className} />;
+export const InfoCircleIcon = ({className}: {className?: string}) => <Icon path="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" className={className} />;
 
 interface CustomButtonProps {
     onClick?: () => void;

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from './useAuth';
-import { CustomButton, ConfirmationModal } from './App';
+import { CustomButton, ConfirmationModal, CheckCircleIcon, InfoCircleIcon } from './App';
 import type { UserRole } from './types';
 
 export const ControlPanel: React.FC = () => {
@@ -10,6 +10,8 @@ export const ControlPanel: React.FC = () => {
     const [newRole, setNewRole] = useState<UserRole>('User');
     const [error, setError] = useState('');
     const [isConfirmingDelete, setIsConfirmingDelete] = useState<string | null>(null);
+
+    const isAiConfigured = !!process.env.API_KEY;
 
     const handleAddUser = (e: React.FormEvent) => {
         e.preventDefault();
@@ -47,6 +49,45 @@ export const ControlPanel: React.FC = () => {
 
     return (
         <div className="space-y-8">
+             {/* AI Service Configuration Section */}
+             <section className="bg-white p-6 rounded-lg shadow-sm border border-neutral-200">
+                <h2 className="text-xl font-bold text-neutral-800 mb-1">AI Service Configuration</h2>
+                <p className="text-sm text-neutral-500 mb-4">Monitor the status of the integrated Google AI services.</p>
+                <div className="pt-4 border-t border-neutral-200">
+                    <div className="flex items-center gap-4">
+                        <h3 className="text-md font-semibold text-neutral-700">Gemini API Status:</h3>
+                        {isAiConfigured ? (
+                            <span className="flex items-center gap-1.5 px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-800">
+                                <CheckCircleIcon className="h-5 w-5" />
+                                Configured
+                            </span>
+                        ) : (
+                            <span className="flex items-center gap-1.5 px-3 py-1 text-sm font-semibold rounded-full bg-red-100 text-red-800">
+                                <InfoCircleIcon className="h-5 w-5" />
+                                Not Configured
+                            </span>
+                        )}
+                    </div>
+                    {!isAiConfigured && (
+                        <div className="mt-4 p-4 bg-primary-50 border border-primary-200 rounded-lg">
+                            <div className="flex">
+                                <div className="flex-shrink-0">
+                                    <InfoCircleIcon className="h-5 w-5 text-primary-500" />
+                                </div>
+                                <div className="ml-3">
+                                    <h3 className="text-sm font-bold text-primary-800">Action Required: Set API Key</h3>
+                                    <div className="mt-2 text-sm text-primary-700 space-y-2">
+                                        <p>The application's AI features, such as PDF document processing, are currently disabled.</p>
+                                        <p>To enable them, an administrator must set the <code className="font-mono font-bold bg-primary-100 text-primary-900 px-1 py-0.5 rounded">API_KEY</code> environment variable on the server where this application is hosted. The value should be a valid Google AI API key.</p>
+                                        <p>For security reasons, the API key cannot be entered or stored through this user interface.</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </section>
+
             {/* Add User Section */}
             <section className="bg-white p-6 rounded-lg shadow-sm border border-neutral-200">
                 <h2 className="text-xl font-bold text-neutral-800 mb-1">Add New User</h2>
