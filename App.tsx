@@ -255,6 +255,61 @@ export const InfoModal: React.FC<InfoModalProps> = ({ isOpen, onClose, title, ch
     );
 };
 
+interface AiConfigModalProps {
+    isOpen: boolean;
+    onLoadDemo: () => void;
+    onClose: () => void;
+}
+
+const AiConfigModal: React.FC<AiConfigModalProps> = ({ isOpen, onLoadDemo, onClose }) => {
+    if (!isOpen) return null;
+
+    return (
+        <div 
+            className="fixed inset-0 bg-neutral-900/60 z-50 flex justify-center items-center p-4" 
+            aria-labelledby="modal-title" 
+            role="dialog" 
+            aria-modal="true"
+            onClick={onClose}
+        >
+            <div 
+                className="bg-white rounded-lg shadow-2xl p-6 sm:p-8 w-full max-w-md transform transition-all duration-300 scale-95 opacity-0 animate-fade-in-scale"
+                onClick={e => e.stopPropagation()}
+            >
+                <div className="sm:flex sm:items-start">
+                     <div className="mx-auto flex-shrink-0 flex items-center justify-center h-12 w-12 rounded-full bg-red-100 sm:mx-0 sm:h-10 sm:w-10">
+                        <svg className="h-6 w-6 text-red-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth="2" stroke="currentColor" aria-hidden="true">
+                           <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                    </div>
+                    <div className="mt-3 text-center sm:mt-0 sm:ml-4 sm:text-left">
+                        <h3 className="text-lg leading-6 font-bold text-neutral-900" id="modal-title">AI Service Not Configured</h3>
+                        <div className="mt-2">
+                            <p className="text-sm text-neutral-600">The document processing service is unavailable because the API key has not been set up on the server.</p>
+                            <p className="text-sm text-neutral-600 mt-2">You can either contact your administrator for assistance or load sample data to see how the import feature works.</p>
+                        </div>
+                    </div>
+                </div>
+                <div className="mt-6 sm:mt-8 sm:flex sm:flex-row-reverse gap-3">
+                    <CustomButton onClick={onLoadDemo} variant="primary" className="w-full sm:w-auto">
+                        Load Sample Data
+                    </CustomButton>
+                    <CustomButton onClick={onClose} variant="secondary" className="w-full mt-3 sm:mt-0 sm:w-auto">
+                        OK
+                    </CustomButton>
+                </div>
+            </div>
+             <style>{`
+                @keyframes fade-in-scale {
+                    from { transform: scale(0.95); opacity: 0; }
+                    to { transform: scale(1); opacity: 1; }
+                }
+                .animate-fade-in-scale { animation: fade-in-scale 0.2s ease-out forwards; }
+            `}</style>
+        </div>
+    );
+};
+
 
 // Helper functions for display logic
 const formatItemsForDisplay = (items: Record<string, number> | string[]): string => {
@@ -389,6 +444,7 @@ export default function App() {
     const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
     const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
     const [infoModalContent, setInfoModalContent] = useState<{ title: string; message: string; variant: 'error' | 'success' | 'info' } | null>(null);
+    const [showAiConfigErrorModal, setShowAiConfigErrorModal] = useState(false);
     const reportsDidMount = useRef(false);
 
     // PDF Import State
@@ -669,6 +725,57 @@ export default function App() {
     
     const handleTriggerPdfImport = useCallback(() => { importFileRef.current?.click(); }, []);
 
+    const loadDemoData = useCallback(() => {
+        const demoReports: Report[] = [
+            {
+              id: 'demo-1',
+              requesterName: 'John Doe (Demo)',
+              campus: 'Campus1',
+              importDate: '2024-01-15',
+              exportDate: '2024-01-16',
+              items: { 'A4 Paper': 2, 'Mouse': 1 },
+              status: 'Done',
+            },
+            {
+              id: 'demo-2',
+              requesterName: 'Jane Smith (Demo)',
+              campus: 'Campus2',
+              importDate: '2024-01-17',
+              exportDate: '2024-01-18',
+              items: { 'Keyboard': 1, 'Webcam': 1, 'Bk': 5 },
+              status: 'Process',
+            },
+        ];
+        
+        const allItems = [...STATIONARY_ITEMS_ROW1, ...STATIONARY_ITEMS_ROW2];
+        const demoStock: Record<string, StockItem> = {};
+        allItems.forEach(item => {
+            demoStock[item] = {
+                quantity: 50,
+                lastInDate: '2024-01-10',
+                lastOutDate: '',
+                lastUpdateQuantity: 0,
+            };
+        });
+        
+        demoStock['A4 Paper'].quantity = 48;
+        demoStock['A4 Paper'].lastOutDate = '2024-01-16';
+        demoStock['A4 Paper'].lastUpdateQuantity = -2;
+        demoStock['Mouse'].quantity = 49;
+        demoStock['Mouse'].lastOutDate = '2024-01-16';
+        demoStock['Mouse'].lastUpdateQuantity = -1;
+
+        setReports(demoReports);
+        setStock(demoStock);
+        setShowAiConfigErrorModal(false);
+        setInfoModalContent({
+            variant: 'info',
+            title: 'Sample Data Loaded',
+            message: 'This is a demonstration of the import feature. The reports and stock levels have been populated with sample data.'
+        });
+    }, [setReports, setStock]);
+
+
     const handlePdfImport = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -832,13 +939,8 @@ ${fullText}
             if (error instanceof Error) {
                 const message = error.message.toLowerCase();
 
-                // If API Key is missing or invalid, show a specific error.
                 if (message === 'api_key_missing' || message.includes('api key not valid')) {
-                    setInfoModalContent({
-                        variant: 'error',
-                        title: 'AI Service Not Configured',
-                        message: 'The document processing service is unavailable. Please ensure the API key is set up correctly on the server. Contact your administrator for assistance.'
-                    });
+                    setShowAiConfigErrorModal(true);
                 } else if (message.includes("could not extract any text from the pdf")) {
                     setInfoModalContent({ variant: 'error', title: 'Cannot Read PDF', message: 'No text could be extracted from the provided PDF. It may be an image, empty, or corrupted.' });
                 } else {
@@ -851,7 +953,7 @@ ${fullText}
             setIsImporting(false);
             if (e.target) e.target.value = '';
         }
-    }, [setReports, setStock]);
+    }, [setReports, setStock, loadDemoData]);
 
     if (!isAuthenticated) return <LoginPage />;
 
@@ -960,6 +1062,11 @@ ${fullText}
             >
                 {infoModalContent?.message || 'An unknown error has occurred.'}
             </InfoModal>
+            <AiConfigModal
+                isOpen={showAiConfigErrorModal}
+                onClose={() => setShowAiConfigErrorModal(false)}
+                onLoadDemo={loadDemoData}
+            />
             <input type="file" ref={importFileRef} onChange={handlePdfImport} accept=".pdf" className="hidden" aria-hidden="true" />
         </div>
     );
